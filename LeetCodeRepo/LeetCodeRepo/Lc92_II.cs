@@ -24,9 +24,7 @@ namespace LeetCodeRepo
                 this.left.val = right.val;
                 right.val = t;
                 this.left = this.left.next;
-            }
-
-            
+            }          
         }
     }
 }
