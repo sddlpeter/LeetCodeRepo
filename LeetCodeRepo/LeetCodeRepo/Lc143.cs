@@ -1,3 +1,25 @@
+/*
+    1 -> 2 -> 3 -> 4 -> 5 -> 6
+    s
+    f
+
+    1 -> 2 -> 3 -> 4 -> 5 -> 6
+         s
+              f
+
+    1 -> 2 -> 3 -> 4 -> 5 -> 6 -> null
+              s
+                        f
+
+    1 -> 2 -> 3 -> 4 -> 5 -> 6 -> null
+              pM
+                   pC
+
+    1 -> 2 -> 3 -> 4 -> 5 -> 6 -> null
+              pM
+                   pC   c
+*/
+
 namespace LeetCodeRepo{
     public class Lc143{
         public void ReorderList(ListNode head){
@@ -9,15 +31,32 @@ namespace LeetCodeRepo{
                 slow = slow.next;
             }
 
-            ListNode prev = null;
-            ListNode curr = slow.next;
-            while(curr!=null){
-                ListNode temp = curr.next;
-                curr.next = prev;
-                prev = curr;
-                curr = temp;
+            ListNode firstHalfEnd = slow;
+            ListNode secondHalfStart = slow.next;
+            //  1 -> 2 -> 3 -> 4 -> 5 -> 6 -> null
+            //            f    s    c
+
+            //  1 -> 2 -> 3 -> 5 -> 4 -> 6 -> null
+            //            f         s    c
+
+            //  1 -> 2 -> 3 -> 6 -> 5 -> 4 -> null
+            //            f              s    c
+            while(secondHalfStart.next != null){
+                ListNode curr = secondHalfStart.next;
+                secondHalfStart.next = curr.next;
+                curr.next = firstHalfEnd.next;
+                firstHalfEnd.next = curr;
             }
-            slow.next = prev;
+
+            ListNode p1 = head;
+            ListNode p2 = firstHalfEnd.next;
+            while(p1!=preMiddle){
+                firstHalfEnd.next = p2.next;
+                p2.next = p1.next;
+                p1.next = p2;
+                p1 = p2.next;
+                p2 = firstHalfEnd.next;
+            }
 
         }
     }
