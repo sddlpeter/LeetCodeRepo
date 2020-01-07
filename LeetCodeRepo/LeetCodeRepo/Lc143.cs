@@ -23,7 +23,7 @@
 namespace LeetCodeRepo{
     public class Lc143{
         public void ReorderList(ListNode head){
-            if(head == null || head.next == null) return head;
+            if(head == null || head.next == null) return;
             ListNode slow = head;
             ListNode fast = head;
             while(fast.next != null && fast.next.next != null){
@@ -48,16 +48,20 @@ namespace LeetCodeRepo{
                 firstHalfEnd.next = curr;
             }
 
+            //  1 -> 2 -> 3 -> 6 -> 5 -> 4 -> null
+            //  p1        f    p2
+
+            //  1 -> 6 -> 2 -> 3 -> 5 -> 4 -> null
+
             ListNode p1 = head;
             ListNode p2 = firstHalfEnd.next;
-            while(p1!=preMiddle){
+            while(p1!=firstHalfEnd){
                 firstHalfEnd.next = p2.next;
                 p2.next = p1.next;
                 p1.next = p2;
                 p1 = p2.next;
                 p2 = firstHalfEnd.next;
             }
-
         }
     }
 }
