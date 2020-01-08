@@ -1,5 +1,7 @@
 namespace LeetCodeRepo{
     public class Lc25{
+        //  1 -> 2 -> 3 -> 4 -> 5 -> null
+        //  2 -> 1 -> 4 -> 3 -> 5 when k == 2
         public ListNode ReverseKGroup(ListNode head, int k){
             ListNode curr = head;
             int count = 0;
