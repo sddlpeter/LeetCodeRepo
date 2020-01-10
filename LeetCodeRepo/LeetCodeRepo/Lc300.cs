@@ -1,9 +1,15 @@
+/*
+    [10,9,2,5,3,7,101,18]
+
+
+*/
+
+
 namespace LeetCodeRepo{
     public class Lc300{
         public int LengthOfLIS(int[] nums){
-            return helper(nums, int.MaxValue, 0);
+            return helper(nums, int.MinValue, 0);
         }
-
         public int helper(int[] nums, int prev, int curpos){
             if(curpos == nums.Length) return 0;
             int take = 0;
