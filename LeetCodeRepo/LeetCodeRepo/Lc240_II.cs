@@ -18,21 +18,33 @@ namespace LeetCodeRepo
         public bool BinarySearch(int[,] matrix, int target, int start, bool vertical)
         {
             int lo = start;
-            int hi = vertical ? matrix.GetLength(1)-1 : matrix.GetLength(0)-1;
-            while(hi>=lo){
-                int mid = (hi + lo)/2;
-                if(vertical){
-                    if(matrix[start,mid] < target){
-                        lo = mid+1;
-                    } else if(matrix[start,mid] > target){
-                        hi = mid-1;
-                    } else return true;
-                } else{
-                    if(matrix[mid,start] < target){
-                        lo = mid+1;
-                    } else if(matrix[mid,start] > target){
-                        hi = mid-1;
-                    } else return true;
+            int hi = vertical ? matrix.GetLength(1) - 1 : matrix.GetLength(0) - 1;
+            while (hi >= lo)
+            {
+                int mid = (hi + lo) / 2;
+                if (vertical)
+                {
+                    if (matrix[start, mid] < target)
+                    {
+                        lo = mid + 1;
+                    }
+                    else if (matrix[start, mid] > target)
+                    {
+                        hi = mid - 1;
+                    }
+                    else return true;
+                }
+                else
+                {
+                    if (matrix[mid, start] < target)
+                    {
+                        lo = mid + 1;
+                    }
+                    else if (matrix[mid, start] > target)
+                    {
+                        hi = mid - 1;
+                    }
+                    else return true;
                 }
             }
             return false;
