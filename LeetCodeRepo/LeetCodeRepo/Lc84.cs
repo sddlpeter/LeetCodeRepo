@@ -13,7 +13,7 @@ namespace LeetCodeRepo
                     minheight = Math.Min(minheight, heights[j]);
                     maxarea = Math.Max(maxarea, minheight * (j - i + 1));
                 }
-            }
+            }  
             return maxarea;
         }
     }
