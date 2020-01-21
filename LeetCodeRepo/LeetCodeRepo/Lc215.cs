@@ -46,5 +46,14 @@ namespace LeetCodeRepo
             nums[i] = nums[j];
             nums[j] = temp;
         }
+        private void shuffle(int[] nums)
+        {
+            Random random = new Random();
+            for (int i = 1; i < nums.Length; i++)
+            {
+                int j = random.Next(i + 1);
+                swap(nums, i, j);
+            }
+        }
     }
 }
