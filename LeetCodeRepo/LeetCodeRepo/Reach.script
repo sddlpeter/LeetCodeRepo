@@ -1,0 +1,475 @@
+//Script GUID:067b7b12-b691-42a3-b81e-e6d88603319d
+//Used for tracking history
+
+
+[PIN]REFERENCE "/shares/DataMap.Compliance/modules/Privacy.CodeAnnotation/Microsoft.DataMap.CodeAnnotation.Cosmos.dll";
+MODULE "/shares/DataMap.Compliance/modules/Privacy.CodeAnnotation/CodeAnnotation.module" AS DataMapCodeAnnotation;
+MODULE "/shares/PXSCosmos15.Prod/PXS.DeleteSignal.PROD/PrivacyAnnotation/PrivacyAnnotation.module";
+USING Privacy;
+
+// ------------------------------------ declarition ---------------------------------------
+
+#DECLARE StartDate string = "2019-06-01";
+//#DECLARE EndDate string = DateTime.Today.AddDays(-2).ToString("yyyy-MM-dd");
+
+#DECLARE PathDate DateTime = DateTime.Parse(@StartDate);
+
+#DECLARE LastDay DateTime = new DateTime(@PathDate.Year, @PathDate.Month, 1).AddMonths(1).AddDays(-1);
+
+#DECLARE EndDate string = DateTime.Today >= @LastDay.AddDays(2) ? @LastDay.ToString("yyyy-MM-dd") : DateTime.Today.AddDays(-2).ToString("yyyy-MM-dd");
+
+
+
+#DECLARE SubscriptionProfileStr string = string.Format("/local/CnEDataInsights/FoundationalDatasets/Subscription/Azure/{0:yyyy}/{0:MM}/SubscriptionProfile_{0:yyyy}_{0:MM}_01.ss", @PathDate);
+#DECLARE RO_Output string = string.Format("/local/Dev/CnEDataInsights/Public/ReachOptimization/V2/{0:yyyy}/{0:MM}/ReachOptimization_{0:yyyy}_{0:MM}.ss", @PathDate);
+
+
+CPMCneOptins = SSTREAM @"/shares/MKG.prod.datalake/CPM.Partners.CnE/CPM_CnE_Optins_Full.ss";
+
+SubscriptionUserRole =
+    SSTREAM @"/local/CnEDataInsights/FoundationalDatasets/User/Azure/SubscriptionUserRole.ss";
+
+SubscriptionProfile =
+    SSTREAM @SubscriptionProfileStr;
+
+//2018 Jan - 2018 Oct
+CampaignDeliveryHealth_View =
+    VIEW @"/local/CnEDataInsights/CampaignMemory/Views/DeliveryHealth.view"
+    PARAMS
+    (
+        StartDate = @StartDate,
+        EndDate = @EndDate,
+        ProductName = "AZURE",
+        rootFolder = "/local/CnEDataInsights/CampaignMemory/DeliveryHealth"
+    );
+
+Dim_IRIS_Campaigns = SSTREAM @"/local/CnEDataInsights/CampaignOutcomeReporting/Reference/Dim_IRIS_Campaigns.ss";
+
+Dim_CampaignInventory = SSTREAM @"/local/CnEDataInsights/CampaignOutcomeReporting/Reference/Dim_CampaignInventory.ss";
+
+LCID_mapping = SSTREAM @"/local/Dev/CnEDataInsights/Public/ReachOptimization/LCID_Mapping.ss";
+
+//UserActionName_OutcomeMapping = SSTREAM @"/local/Dev/CnEDataInsights/CampaignOutcomeReporting/Reference/Dim_CampaignDeliveryHealth_UserActionName_OutcomeMapping.ss";
+UserActionName_OutcomeMapping = SSTREAM @"/local/PreProd/CnEDataInsights/CampaignOutcomeReporting/Reference/Dim_CampaignDeliveryHealth_UserActionName_OutcomeMapping.ss";
+
+#IF(NOT "@@ProcessDate@@".StartsWith("@@"))
+    #DECLARE ProcessDate DateTime = DateTime.Parse(@@ProcessDate@@);
+#ELSE
+    #DECLARE ProcessDate DateTime = DateTime.UtcNow;
+#ENDIF
+
+#DECLARE DefaultDate DateTime = DateTime.Parse("1900-01-01");
+
+
+//#DECLARE ContactabilityInputStream string = "/local/Dev/CnEDataInsights/Public/ReachOptimization/ReachOptimization.ss";
+//----------------------------------------- Step 1: Extract CPM stream ------------------------------
+SubscriptionUserRole =
+    SELECT *
+    FROM SubscriptionUserRole
+    WHERE UserState == "Active"
+          AND TenantId.ToString() NOT IN("72f988bf-86f1-41af-91ab-2d7cd011db47",
+                                  "33e01921-4d64-4f8c-a055-5bdaffd5e33d",
+                                  "0d0c2253-15fe-4de5-a939-75774da006a1");
+
+
+CPMCneOptins = SELECT DISTINCT ContactId,
+                    Country,
+                    string.IsNullOrEmpty(TopicId) ? TopicId : TopicId.ToUpper() AS TopicId,
+                    string.IsNullOrEmpty(TopicName) ? TopicName : TopicName.ToUpper() AS TopicName,
+                    ModifiedDate
+    FROM CPMCneOptins
+    WHERE TopicId.ToUpper() IN("599099F1-6C31-4A1E-BA9A-04FD8EEBAA17", "8DB9E93F-2467-4588-A194-0BB4241D5B13", "40C64C7A-6E71-4633-9745-E687A3FAFDFA");
+
+topicsTable =
+    SELECT DISTINCT TopicId,
+                    TopicName
+    FROM CPMCneOptins;
+
+
+
+//--------------------- fix LCID issue -------------------
+SubscriptionUserRole =
+    SELECT TenantId,
+           ObjectId,
+           UserPUID,
+           MarketingProfileEmailIdHash,
+           PrimaryEmailIDHash,
+           SubscriptionId,
+           Role,
+           UserState,
+           Country,
+           b.value == null ? "Unknown" : b.value AS LCID
+    FROM SubscriptionUserRole AS a
+         LEFT JOIN
+             LCID_mapping AS b
+         ON a.LCID == b.Lcid;
+
+
+
+
+// ------------------------------- Step 2: build Contactability stream ----------------------
+//Get Optin from CPM for matching marketing email address from SubscriptionUser stream
+OptInUsersWithMarketingProfileEmailIdHash =
+    SELECT sur.TenantId,
+           sur.ObjectId,
+           sur.UserPUID,
+           sur.MarketingProfileEmailIdHash,
+           sur.PrimaryEmailIDHash,
+           cpm.ContactId,
+           cpm.TopicId,
+           cpm.TopicName,
+           cpm.ModifiedDate,
+           sur.SubscriptionId,
+           sur.Role,
+           sur.UserState,
+           sur.Country,
+           sur.LCID
+    FROM SubscriptionUserRole AS sur
+         LEFT OUTER JOIN
+             CPMCneOptins AS cpm
+         ON sur.MarketingProfileEmailIdHash == cpm.ContactId;
+    
+
+//Remaining users are matched with CPM stream based on their Primary Email adddress to verify their OptIn status
+OptInUsersWithPrimaryEmailHash =
+    SELECT OptMpe.TenantId,
+           OptMpe.ObjectId,
+           OptMpe.UserPUID,
+           OptMpe.MarketingProfileEmailIdHash,
+           OptMpe.PrimaryEmailIDHash,
+           cpm.ContactId,
+           cpm.TopicId,
+           cpm.TopicName,
+           cpm.ModifiedDate,
+           OptMpe.SubscriptionId,
+           OptMpe.Role,
+           OptMpe.UserState,
+           OptMpe.Country,
+           OptMpe.LCID
+    FROM OptInUsersWithMarketingProfileEmailIdHash AS OptMpe
+         LEFT OUTER JOIN
+             CPMCneOptins AS cpm
+         ON OptMpe.PrimaryEmailIDHash == cpm.ContactId
+    WHERE string.IsNullOrEmpty(OptMpe.ContactId);
+
+//Verify if users had an opt in from current contactability stream to assign modified date
+
+//ContactabilityCurrentData =
+//    SSTREAM @ContactabilityInputStream;
+
+OptedOutUsers =
+
+//#IF(EXISTS(@ContactabilityInputStream))
+//                      SELECT OptMpe.TenantId,
+//                       OptMpe.ObjectId,
+//                       OptMpe.UserPUID,
+//                       OptMpe.MarketingProfileEmailIdHash,
+//                       OptMpe.PrimaryEmailIDHash,
+//                       ct.ContactId, 
+//                       ct.TopicId,    
+//                       ct.TopicName, 
+//                       (DateTime?) (ct.ModifiedDate IS NULL ? @ProcessDate : (ct.ModifiedDate != @DefaultDate ? @ProcessDate : ct.ModifiedDate )) AS ModifiedDate,
+//                       false AS IsOptIn,
+//                       OptMpe.SubscriptionId,
+//                        OptMpe.Role,
+//                        OptMpe.UserState,
+//                        OptMpe.Country,
+//                        OptMpe.LCID
+//                            FROM OptInUsersWithPrimaryEmailHash AS OptMpe
+//                                LEFT OUTER JOIN ContactabilityCurrentData AS ct 
+//                                ON OptMpe.UserPUID == ct.UserPUID 
+//                            WHERE string.IsNullOrEmpty(OptMpe.ContactId);
+//
+//#ELSE
+        SELECT TenantId,
+               ObjectId,
+               UserPUID,
+               MarketingProfileEmailIdHash,
+               PrimaryEmailIDHash,
+               ContactId,
+               TopicId,
+               TopicName,
+               (DateTime?) @ProcessDate AS ModifiedDate,
+                SubscriptionId,
+                Role,
+                UserState,
+                Country,
+                LCID
+        FROM OptInUsersWithPrimaryEmailHash
+        WHERE string.IsNullOrEmpty(ContactId);
+//#ENDIF
+
+//Dataset for optedOut users with NULL topic id and cross joined with  base topic table
+OptedOutUsersWithTopics =
+    SELECT TenantId,
+           ObjectId,
+           UserPUID,
+           MarketingProfileEmailIdHash,
+           PrimaryEmailIDHash,
+           ContactId,
+           TopicId,
+           TopicName,
+           ModifiedDate,
+            SubscriptionId,
+            Role,
+            UserState,
+            Country,
+            LCID
+    FROM OptedOutUsers
+//         CROSS JOIN
+//             topicsTable AS b
+    WHERE string.IsNullOrEmpty(ContactId);
+
+ConsolidatedOptInOutUsers =
+    SELECT TenantId,
+           ObjectId,
+           UserPUID,
+           MarketingProfileEmailIdHash,
+           PrimaryEmailIDHash,
+           ContactId,
+           TopicId,
+           TopicName,
+           ModifiedDate,
+           "MarketingEmail" AS MatchedEmailType,
+           true AS IsOptIn,
+            SubscriptionId,
+            Role,
+            UserState,
+            Country,
+            LCID
+    FROM OptInUsersWithMarketingProfileEmailIdHash
+    WHERE !string.IsNullOrEmpty(ContactId)
+    UNION
+    SELECT TenantId,
+           ObjectId,
+           UserPUID,
+           MarketingProfileEmailIdHash,
+           PrimaryEmailIDHash,
+           ContactId,
+           TopicId,
+           TopicName,
+           ModifiedDate,
+           "PrimaryEmail" AS MatchedEmailType,
+           true AS IsOptIn,
+            SubscriptionId,
+            Role,
+            UserState,
+            Country,
+            LCID
+    FROM OptInUsersWithPrimaryEmailHash
+    WHERE !string.IsNullOrEmpty(ContactId)
+                                UNION
+                                    SELECT TenantId,                                
+                                   ObjectId,
+                                   UserPUID,
+                                   MarketingProfileEmailIdHash,
+                                   PrimaryEmailIDHash,
+                                   ContactId,
+                                   TopicId,
+                                   TopicName,
+                                   ModifiedDate,
+                                   "NoEmailMatched" AS MatchedEmailType,
+                                   false AS IsOptIn,
+                                    SubscriptionId,
+                                    Role,
+                                    UserState,
+                                    Country,
+                                    LCID
+                                   FROM OptedOutUsers
+   WHERE !string.IsNullOrEmpty(ContactId) 
+    UNION 
+    SELECT TenantId,
+           ObjectId,
+           UserPUID,
+           MarketingProfileEmailIdHash,
+           PrimaryEmailIDHash,
+           ContactId,
+           TopicId,
+           TopicName,
+           ModifiedDate,
+           "NoEmailMatched" AS MatchedEmailType,
+            false AS IsOptIn,
+            SubscriptionId,
+            Role,
+            UserState,
+            Country,
+            LCID
+            FROM OptedOutUsersWithTopics;
+
+BusinessSizeCalc =
+    SELECT DISTINCT TenantId,
+                    UserPUID
+    FROM SubscriptionUserRole;
+
+BusinessSizeCalc2 =
+    SELECT TenantId,
+           COUNT(DISTINCT UserPUID) AS BusinessSize
+    FROM BusinessSizeCalc;
+
+ConsolidatedOptInOutUsers = //UserPreference.ss
+    SELECT DISTINCT @ProcessDate AS SnapshotDate,
+                    a.TenantId,
+                    ObjectId,
+                    UserPUID,
+                    MarketingProfileEmailIdHash,
+                    PrimaryEmailIDHash,
+                    ContactId,
+                    TopicId,
+                    TopicName,
+                    ModifiedDate,
+                    MatchedEmailType,
+                    IsOptIn,
+                    SubscriptionId,
+                    (Role IN("AccountAdmin", "ServiceAdmin", "Owner", "Contributor", "Reader", "CoAdmin") ? Role : "Others") AS Role,
+                    UserState,
+                    Country,
+                    LCID,
+                    b.BusinessSize
+    FROM ConsolidatedOptInOutUsers AS a
+         LEFT JOIN
+             BusinessSizeCalc2 AS b
+         ON a.TenantId == b.TenantId;
+
+// ------------------------------- Step 3: build AST stream ----------------------
+
+AST_Data = SELECT DISTINCT
+        b.SnapshotDate,
+        b.SnapshotDate != NULL ? b.SnapshotDate.ToString().Substring(6,4) : NULL AS SnapshotYear,
+        b.SnapshotDate != NULL ? b.SnapshotDate.ToString().Substring(0,2) : NULL AS SnapshotMonth,
+        a.TenantId,
+        a.ObjectId,
+        a.UserPUID,
+        a.MarketingProfileEmailIdHash,
+        a.PrimaryEmailIDHash,
+        a.ContactId,
+        a.TopicId,
+        a.TopicName,
+        a.ModifiedDate,
+        a.MatchedEmailType,
+        a.IsOptIn,
+        a.SubscriptionId,
+        b.SubscriptionStartDate,
+        b.SubscriptionEndDate,
+        b.CurrentSubscriptionStatus,
+        b.IsTrial == "True"? 1 : 0 AS Trial,
+        b.TPID,
+        b.TPName,
+        b.OfferId,
+        b.OfferName,
+        b.AI_OfferType AS OfferType,
+        //b.TrialToPaidConversionType AS ConversionType,
+        b.AI_TrialToPaidConversion AS ConversionType,
+        b.CloudCustomerGuid,
+        a.Role,
+        a.UserState,
+        a.Country,
+        a.LCID,
+        a.BusinessSize >= 1 && a.BusinessSize <= 24? "1-24" : (a.BusinessSize >= 25 && a.BusinessSize <= 99? "25-99" : (a.BusinessSize >= 100 && a.BusinessSize <= 999? "100-999" : "1000+")) AS BusinessSize,
+        a.Role.Contains("Admin") ? "Admin" : "Non-Admin" AS IsAdmin,
+        a.UserPUID.StartsWith("000") ? "MSAPuid" : "OrgPuid" AS UserType,
+        a.UserState.ToUpper() == "ACTIVE" ? 1 : 0 AS IsUserActive
+        FROM ConsolidatedOptInOutUsers AS a
+        INNER JOIN 
+        SubscriptionProfile AS b ON a.SubscriptionId == b.SubscriptionGuid
+                                 WHERE AI_IsTest == false AND b.CurrentSubscriptionStatus.ToUpper() == "ACTIVE";
+
+
+
+// ------------------------------- Step 4: reach optimization stream ----------------------
+
+
+//join CampaignDeliveryHealth.view with last rowset
+CampaignDeliveryHealth =
+    SELECT DISTINCT a.UserId,
+                    a.CampaignId,
+                    a.CampaignName,
+                    a.InteractionId,
+                    a.InteractionName,
+                    a.TreatmentName,
+                    a.LineOfBusinessName,
+                    a.ActionType AS Channel,
+                    a.UserActionName,   // change 12-30: add this attributes
+                    d.OutcomeName,
+                    c.Lifecycle
+    FROM CampaignDeliveryHealth_View AS a
+//         INNER JOIN Dim_IRIS_Campaigns_Distinct AS b ON a.CampaignId == b.CampaignId  //change 2020-01-02
+         INNER JOIN Dim_CampaignInventory AS c ON a.CampaignId == c.CampaignId
+        INNER JOIN UserActionName_OutcomeMapping AS d ON a.UserActionName == d.UserActionName
+    WHERE c.ProductName == "AZURE" AND c.IsTest != "Y" AND d.ProductName == "AZURE";
+
+
+
+
+
+
+Reach_Optimization =
+    SELECT 
+    DISTINCT 
+    a.SnapshotDate,
+    a.TenantId,
+    a.ObjectId,
+    a.UserPUID,
+    a.TopicId,
+    a.TopicName == "MICROSOFT AZURE NEWSLETTER" ? "Newsletter" : 
+        (a.TopicName == "MICROSOFT AZURE PROMOTIONAL CONTENT" ? "Promotional" : 
+            (a.TopicName == "AZURE PRODUCT UPDATES AND ANNOUNCEMENTS" ? "Other" : a.TopicName)
+        ) AS TopicName,
+    a.ModifiedDate,
+    a.MatchedEmailType == "MarketingEmail" ? "Marketing Email" : 
+        (a.MatchedEmailType == "NoEmailMatched" ? "No Email Match" : 
+            (a.MatchedEmailType == "PrimaryEmail" ? "Primary Email" : a.MatchedEmailType)
+        ) AS MatchedEmailType,
+    a.IsOptIn,
+    a.SubscriptionId,
+    a.SubscriptionStartDate,
+    a.SubscriptionEndDate,
+    a.CurrentSubscriptionStatus,
+    a.Trial,
+//    a.TPID, // remove TPID
+//    a.TPName,
+    a.CloudCustomerGuid AS CCID,
+    a.OfferId,
+    a.OfferName,
+    a.OfferType,
+    a.ConversionType,
+    a.Role AS UserRole,
+    a.UserState,
+    a.Country,
+    a.LCID,
+    //a.BusinessSize,
+    a.IsAdmin,
+    a.UserType,
+    a.IsUserActive,
+    b.CampaignId,
+    b.CampaignName,
+    b.InteractionId,
+    b.InteractionName,
+    b.TreatmentName,
+    b.LineOfBusinessName,
+    string.IsNullOrWhiteSpace(b.Channel) ? "Other" : (b.Channel == "CreativeDisplay" ? "IPM" : b.Channel) AS Channel,
+    b.UserActionName,
+    b.OutcomeName,
+    b.OutcomeName == "SENT" ? true : false AS ReachedFlag,
+    b.Lifecycle
+
+    FROM AST_Data AS a
+         LEFT JOIN
+             CampaignDeliveryHealth AS b
+         ON a.UserPUID == b.UserId;
+
+
+
+
+//ReachOptimization Tagged output
+[Privacy.DataType.LicensingAndPurchase]
+[Privacy.Asset.KeyValuePair("Targeting","Yes")]
+[Privacy.DataType.Account]
+[Privacy.Column.TenantId(Column="TenantId",Format=Privacy.Column.TenantId.AllowedFormat.Guid)]
+[Privacy.Subject.User.Puid(Column="UserPUID",Format=Privacy.Subject.User.Puid.AllowedFormat.Hex)]
+[Privacy.Subject.User.OrgIdPuid(Column="UserPUID",Format=Privacy.Subject.User.OrgIdPuid.AllowedFormat.Hex)]
+[Privacy.Subject.User.ObjectId(Column="ObjectId",Format=Privacy.Subject.User.ObjectId.AllowedFormat.Guid)]
+
+OUTPUT Reach_Optimization
+TO SSTREAM @RO_Output
+CLUSTERED BY  UserPUID
+SORTED BY UserPUID;
