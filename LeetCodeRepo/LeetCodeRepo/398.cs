@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System;
+
 namespace LeetCodeRepo
 {
     public class _398
@@ -5,7 +8,7 @@ namespace LeetCodeRepo
         int[] nums;
         Random rand;
 
-        public Solution(int[] nums)
+        public _398(int[] nums)
         {
             this.nums = nums;
             this.rand = new Random();

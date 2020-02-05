@@ -1,3 +1,6 @@
+using System.Collections.Generic;
+using System;
+
 namespace LeetCodeRepo{
 
     //brute force method
