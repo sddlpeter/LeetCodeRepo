@@ -8,7 +8,7 @@ namespace LeetCodeRepo
         ListNode head;
         Random rand;
 
-        public Solution(ListNode h)
+        public _382(ListNode h)
         {
             head = h;
             rand = new Random();
@@ -25,5 +25,10 @@ namespace LeetCodeRepo
             }
             return r;
         }
+    }
+
+    public class ListNode{
+        public int val;
+        public ListNode next;
     }
 }
