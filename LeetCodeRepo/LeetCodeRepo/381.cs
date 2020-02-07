@@ -1,43 +1,61 @@
 using System.Collections.Generic;
+using System.Linq;
 using System;
 
 namespace LeetCodeRepo
 {
     public class RandomizedCollection
     {
-        List<int> lst;
-        Dictionary<int, HashSet<int>> idx;
-        Random rand = new Random();
+        Random random = new Random();
+        Dictionary<int, HashSet<int>> dict = new Dictionary<int, HashSet<int>>();
+        IList<int> numList = new List<int>();
         public RandomizedCollection()
         {
-            lst = new List<int>();
-            idx = new Dictionary<int, HashSet<int>>();
+
         }
 
         public bool Insert(int val)
         {
-            if (!idx.ContainsKey(val)) idx[val] = new HashSet<int>();
-            idx[val].Add(lst.Count);
-            lst.Add(val);
-            return idx[val].Count == 1;
+            if (dict.ContainsKey(val))
+            {
+                numList.Add(val);
+                dict[val].Add(numList.Count - 1);
+                return false;
+            }
+            else
+            {
+                numList.Add(val);
+                dict[val] = new HashSet<int>() { numList.Count - 1 };
+                return true;
+            }
         }
 
         public bool Remove(int val)
         {
-            if (!idx.ContainsKey(val) || idx[val].Count == 0) return false;
-            int remove_idx = idx[val].Count;
-            idx[val].Remove(remove_idx);
-            int last = lst[lst.Count - 1];
-            lst[remove_idx] = last;
-            idx[last].Add(remove_idx);
-            idx[last].Remove(lst.Count - 1);
-            lst.RemoveAt(lst.Count - 1);
+            if (!dict.ContainsKey(val)) return false;
+            var curIndex = dict[val].First();
+            dict[val].Remove(curIndex);
+            if (!dict[val].Any()) dict.Remove(val);
+            if (curIndex == numList.Count - 1)
+            {
+                numList.RemoveAt(numList.Count - 1);
+            }
+            else
+            {
+                var needToModify = numList[numList.Count - 1];
+                numList[curIndex] = needToModify;
+                numList.RemoveAt(numList.Count - 1);
+
+                dict[needToModify].Remove(numList.Count);
+                dict[needToModify].Add(curIndex);
+            }
             return true;
         }
 
         public int GetRandom()
         {
-            return lst[rand.Next(lst.Count)];
+            var randomIndex = random.Next(numList.Count);
+            return numList[randomIndex];
         }
     }
 }
