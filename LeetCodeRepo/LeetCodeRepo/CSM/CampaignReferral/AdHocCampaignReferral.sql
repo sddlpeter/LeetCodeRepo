@@ -2,11 +2,9 @@
 -- load data from SubmitCampaignReferral.xls to Partner_Support.AdHocSubscription
 
 --------------------- Truncate tables --------------------------------
-
 TRUNCATE TABLE Partner_Support.TPIDRevenue;
 TRUNCATE TABLE Partner_Support.MasterTPIDRevenue;
 TRUNCATE TABLE Partner_Support.SubscriptionDetails;
-
 
 
 --------------------- Generate Subscription table ---------------------------------
