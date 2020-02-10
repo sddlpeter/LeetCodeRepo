@@ -328,7 +328,7 @@ SELECT DISTINCT t.TPID
                                                   , t.ProcessedDate AS ProcessedDate
 FROM Partner_Support.SubscriptionDetails t
 JOIN Partner_Support.AdHocSubscription ahs ON t.SubscriptionGUID = ahs.SubscriptionGUID
---WHERE ahs.Source = 'Referral'
+
 ORDER BY 1, 2
 
 
