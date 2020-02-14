@@ -339,28 +339,28 @@ DECLARE @parmProcessDate DATE
 SELECT @parmProcessDate = (select max(createddate) from Partner_Support.AdHocSubscription)
 
 /** check subscription exists in SC **/
-SELECT DISTINCT SubscriptionGUID
-INTO #tmpInSC
-FROM Partner_Support.SubscriptionDetails t
-JOIN Partner_Support.CSM_Subscription_TPID s ON t.SubscriptionGUID = s.AI_SubscriptionKey 
+-- SELECT DISTINCT SubscriptionGUID
+-- INTO #tmpInSC
+-- FROM Partner_Support.SubscriptionDetails t
+-- JOIN Partner_Support.CSM_Subscription_TPID s ON t.SubscriptionGUID = s.AI_SubscriptionKey 
 
-SELECT DISTINCT SubscriptionGUID
-INTO #tmpNotInSC
-FROM Partner_Support.SubscriptionDetails t
-LEFT JOIN Partner_Support.CSM_Subscription_TPID s ON t.SubscriptionGUID = s.AI_SubscriptionKey 
-WHERE s.AI_SubscriptionKey IS NULL 
+-- SELECT DISTINCT SubscriptionGUID
+-- INTO #tmpNotInSC
+-- FROM Partner_Support.SubscriptionDetails t
+-- LEFT JOIN Partner_Support.CSM_Subscription_TPID s ON t.SubscriptionGUID = s.AI_SubscriptionKey 
+-- WHERE s.AI_SubscriptionKey IS NULL 
 
-UPDATE Partner_Support.AdHocSubscription
-SET ExistInSC = 1
-FROM #tmpInSC t
-WHERE t.SubscriptionGUID = Partner_Support.AdHocSubscription.SubscriptionGUID 
-AND Partner_Support.AdHocSubscription.CreatedDate = @parmProcessDate
+-- UPDATE Partner_Support.AdHocSubscription
+-- SET ExistInSC = 1
+-- FROM #tmpInSC t
+-- WHERE t.SubscriptionGUID = Partner_Support.AdHocSubscription.SubscriptionGUID 
+-- AND Partner_Support.AdHocSubscription.CreatedDate = @parmProcessDate
 
-UPDATE Partner_Support.AdHocSubscription
-SET ExistInSC = 0
-FROM #tmpNotInSC t 
-WHERE t.SubscriptionGUID = Partner_Support.AdHocSubscription.SubscriptionGUID 
-AND Partner_Support.AdHocSubscription.CreatedDate = @parmProcessDate
+-- UPDATE Partner_Support.AdHocSubscription
+-- SET ExistInSC = 0
+-- FROM #tmpNotInSC t 
+-- WHERE t.SubscriptionGUID = Partner_Support.AdHocSubscription.SubscriptionGUID 
+-- AND Partner_Support.AdHocSubscription.CreatedDate = @parmProcessDate
 
 /** check subscription exists in AIP **/
 SELECT DISTINCT ahs.SubscriptionGUID
@@ -395,14 +395,14 @@ SELECT DISTINCT SubscriptionGUID
 INTO #tmpUploadToSC
 FROM Partner_Support.AdHocSubscription 
 WHERE CreatedDate = @parmProcessDate
-AND ExistInSC = 0
+-- AND ExistInSC = 0
 AND NotInAIP = 0
 
 SELECT DISTINCT SubscriptionGUID
 INTO #tmpNotUploadToSC
 FROM Partner_Support.AdHocSubscription 
 WHERE CreatedDate = @parmProcessDate
-AND ExistInSC = 1
+-- AND ExistInSC = 1
 OR NotInAIP =1 
 
 UPDATE Partner_Support.AdHocSubscription 
