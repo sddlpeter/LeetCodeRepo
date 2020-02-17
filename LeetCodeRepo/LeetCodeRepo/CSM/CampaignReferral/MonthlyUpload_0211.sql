@@ -19,7 +19,7 @@ DECLARE @EarliestMonth int = @CrrtMonth
 
 
 
-
+------------------------- Step 1: #SubscriptionLIst -------------------------
 
 IF OBJECT_ID('tempdb..#SubscriptionList') IS NOT NULL
   DROP TABLE #SubscriptionList
@@ -46,9 +46,12 @@ AND AI_IsTest = 0
 AND AI_OfferType IN ('Benefit Programs', 'Consumption' , 'Unit Commitment', 'Monetary Commitment' , 'Modern', 'CustomerLed','FieldLed'
 --,'Modern Field Led'  
 )
-AND NOT OfferName IN ('Free Trial', 'BizSpark', 'BizSpark Plus', 'Microsoft Azure BizSpark 1111', 'Enterprise: BizSpark', 'Visual Studio Enterprise: BizSpark')
+AND NOT OfferName IN ('Free Trial', 'BizSpark', 'BizSpark Plus', 'Microsoft Azure BizSpark 1111', 'Enterprise: BizSpark', 'Visual Studio Enterprise: BizSpark');
 
 
+
+
+------------------------- Step 1: #BillingResourceGUID2Service -------------------------
 
 IF OBJECT_ID('tempdb..#BillingResourceGUID2Service') IS NOT NULL
   DROP TABLE #BillingResourceGUID2Service;
@@ -78,7 +81,7 @@ GROUP BY BillingResourceGUID
 
 
 
-
+------------------------- Step 2: #MonthlyUsage_ExcludedMonth -------------------------
 
 IF OBJECT_ID('tempdb..#MonthlyUsage_ExcludedMonth') IS NOT NULL
   DROP TABLE #MonthlyUsage_ExcludedMonth;
@@ -112,6 +115,9 @@ FROM CTE WHERE CSMProgram_IsExcludedMonth = 1;
 
 
 
+
+------------------------- Step 2: #ServiceBillingSubscription -------------------------
+
 IF OBJECT_ID('tempdb..#ServiceBillingSubscription') IS NOT NULL
   DROP TABLE #ServiceBillingSubscription;
 
@@ -141,7 +147,7 @@ GROUP BY SB.AI_SubscriptionKey,
 
 
 
--- Final TPID PaidUsageUSD Total Calculation
+------------------------- Step 2: #ServiceBilling_TPIDTotal -------------------------
 
 IF OBJECT_ID('tempdb..#ServiceBilling_TPIDTotal') IS NOT NULL
   DROP TABLE #ServiceBilling_TPIDTotal;
@@ -166,7 +172,7 @@ FROM CTE
 GROUP BY AnalysisTPID,PaidUsageUSD_CSMProgram,BillingMonth;
 
 
-
+------------------------- Step 3:  #ServiceBilling_TPIDTotal_Rest_Of_The_World -------------------------
 
 IF OBJECT_ID('tempdb..#ServiceBilling_TPIDTotal_Rest_Of_The_World') IS NOT NULL
   DROP TABLE #ServiceBilling_TPIDTotal_Rest_Of_The_World
@@ -183,7 +189,7 @@ select AnalysisTPID,
     ON ss.AnalysisTPID = om.OrgID where PaidUsageUSD_CSMProgram >=1000 and  om.SubsidiaryName!='United States' group by AnalysisTPID
 
 
-
+------------------------- Step 3:  #ServiceBilling_TPIDTotal_US -------------------------
 
  IF OBJECT_ID('tempdb..#ServiceBilling_TPIDTotal_US') IS NOT NULL
   DROP TABLE #ServiceBilling_TPIDTotal_US
@@ -200,20 +206,20 @@ select AnalysisTPID,
     ON ss.AnalysisTPID = om.OrgID where PaidUsageUSD_CSMProgram >=500 and om.SubsidiaryName='United States' group by AnalysisTPID
 
 
+------------------------- Step 3:  #ServiceBilling_TPIDTotal_US_All -------------------------
 
 Select * into #ServiceBilling_TPIDTotal_US_All from (Select * from #ServiceBilling_TPIDTotal_Rest_Of_The_World union select * from #ServiceBilling_TPIDTotal_US) as tmp;
 
---select * from #ServiceBilling_TPIDTotal_US_All
-
-SELECT
-  CSMProgram_AddMonth,
-  COUNT(*)
-FROM #ServiceBilling_TPIDTotal
-GROUP BY CSMProgram_AddMonth
-ORDER BY CSMProgram_AddMonth
+-- SELECT
+--   CSMProgram_AddMonth,
+--   COUNT(*)
+-- FROM #ServiceBilling_TPIDTotal
+-- GROUP BY CSMProgram_AddMonth
+-- ORDER BY CSMProgram_AddMonth
 
 
 
+------------------------- Step 4:  #AzureContactInfo -------------------------
 
 IF OBJECT_ID('tempdb..#AzureContactInfo') IS NOT NULL
   DROP TABLE #AzureContactInfo;
@@ -323,11 +329,14 @@ UNION
 			WHERE SubscriptionGUID IN (SELECT SubscriptionGUID FROM #SubscriptionList)
 			AND [AdminType] ='Contributor'
 )
-SELECT
-  * INTO #AzureContactInfo
+SELECT * 
+INTO #AzureContactInfo
 FROM CTE
 
 
+
+
+------------------------- Step 5:  Insert into Partner_Support.SubscriptionDetails -------------------------
 
 INSERT INTO Partner_Support.SubscriptionDetails
 
@@ -397,7 +406,7 @@ INSERT INTO Partner_Support.SubscriptionDetails
 			ProcessedDate = GETDATE(),
 			BillableAccountID = cast(ss.BillableAccountID as bigint),
 			NULL AS source
-			
+
 		  FROM #SubscriptionList SS
 
 		  INNER JOIN #ServiceBilling_TPIDTotal_US_All BTotal
