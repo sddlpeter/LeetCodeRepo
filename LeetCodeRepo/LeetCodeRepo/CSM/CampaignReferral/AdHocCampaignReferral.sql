@@ -94,7 +94,6 @@ FROM
 			 , ROW_NUMBER() OVER (PARTITION BY ss.SubscriptionGUID ORDER BY ss.SubscriptionCreatedDate DESC) RNK
 		FROM Partner_Support.AdHocSubscription t
 		JOIN vwSubscriptionSnapshotV2 ss ON t.SubscriptionGUID = ss.SubscriptionGUID
-		--vwSubscriptionSnapshot ss ON t.SubscriptionGUID = ss.SubscriptionGUID
 		LEFT JOIN PII.vwAzureContactInfo ci ON t.SubscriptionGUID = ci.SubscriptionGUID
 		LEFT JOIN vwServiceBilling sb ON t.SubscriptionGUID = sb.AI_SubscriptionKey -- some subscriptions might not have paid usage for a while or in that billing month
 		LEFT JOIN vwOrganizationMaster om ON ss.TPID = om.OrgID  

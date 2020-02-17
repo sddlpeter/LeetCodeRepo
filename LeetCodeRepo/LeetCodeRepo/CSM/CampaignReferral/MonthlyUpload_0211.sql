@@ -48,7 +48,8 @@ AND AI_OfferType IN (
 , 'Monetary Commitment'            --unclear reason for inclusion
 -- Modern Offer Types
 , 'Modern'
-, 'Modern Customer Led'
+, 'CustomerLed'
+,'FieldLed'
 --,'Modern Field Led'                      -- not currently include
 --,'Modern Partner Led'                -- do not include
 )
