@@ -22,7 +22,7 @@ DECLARE @EarliestMonth int = @CrrtMonth
 ------------------------- Step 1: #SubscriptionLIst -------------------------
 
 IF OBJECT_ID('tempdb..#SubscriptionList') IS NOT NULL
-  DROP TABLE #SubscriptionList
+  DROP TABLE #SubscriptionList;
 
 SELECT
   AnalysisTPID = SS.TPID,
@@ -43,8 +43,7 @@ AND BusinessGroupName = 'Azure'
 AND AI_IsFraud = 0
 AND BisIsTestData = 0
 AND AI_IsTest = 0
-AND AI_OfferType IN ('Benefit Programs', 'Consumption' , 'Unit Commitment', 'Monetary Commitment' , 'Modern', 'CustomerLed','FieldLed'
---,'Modern Field Led'  
+AND AI_OfferType IN ('Benefit Programs', 'Consumption' , 'Unit Commitment', 'Monetary Commitment' , 'Modern', 'CustomerLed','FieldLed' --,'Modern Field Led'
 )
 AND NOT OfferName IN ('Free Trial', 'BizSpark', 'BizSpark Plus', 'Microsoft Azure BizSpark 1111', 'Enterprise: BizSpark', 'Visual Studio Enterprise: BizSpark');
 
@@ -77,7 +76,7 @@ SELECT
   IsExcluded = MAX(CASE WHEN IsXamarin = 1 OR IsAzureDevOps = 1 THEN 1 ELSE 0 END) 
   INTO #BillingResourceGUID2Service
 FROM CTE
-GROUP BY BillingResourceGUID
+GROUP BY BillingResourceGUID;
 
 
 
@@ -131,13 +130,10 @@ SELECT
 																) AND MU.[DateKey] IS NULL THEN PaidUsageUSD ELSE NULL END),
   MU.ServiceName,
   MU.WorkloadName
-  INTO #ServiceBillingSubscription
+INTO #ServiceBillingSubscription
 FROM vwServiceBilling SB
-INNER JOIN #SubscriptionList SL
-  ON SB.AI_SubscriptionKey = SL.AI_SubscriptionKey
-LEFT JOIN #MonthlyUsage_ExcludedMonth MU
-  ON SB.BillingMonth = MU.[DateKey]
-  AND SB.AI_SubscriptionKey = MU.AI_SubscriptionKey
+INNER JOIN #SubscriptionList SL ON SB.AI_SubscriptionKey = SL.AI_SubscriptionKey
+LEFT JOIN #MonthlyUsage_ExcludedMonth MU ON SB.BillingMonth = MU.[DateKey] AND SB.AI_SubscriptionKey = MU.AI_SubscriptionKey
 WHERE 1 = 1
 AND @EarliestMonth <= BillingMonth
 AND BillingMonth <= @CrrtMonth
@@ -154,11 +150,11 @@ IF OBJECT_ID('tempdb..#ServiceBilling_TPIDTotal') IS NOT NULL
 
 WITH CTE
 AS (SELECT
-	AnalysisTPID,
-	BillingMonth,
-	PaidUsageUSD_CSMProgram = SUM(PaidUsageUSD_CSMProgram)
-FROM #ServiceBillingSubscription SB
-GROUP BY AnalysisTPID, BillingMonth
+		AnalysisTPID,
+		BillingMonth,
+		PaidUsageUSD_CSMProgram = SUM(PaidUsageUSD_CSMProgram)
+	FROM #ServiceBillingSubscription SB
+	GROUP BY AnalysisTPID, BillingMonth
 )
 SELECT
   AnalysisTPID,
@@ -167,7 +163,7 @@ SELECT
   BillingMonth,
   CSMProgram_MostRecentMonth = MAX(BillingMonth),
   PaidUsageUSD_MostRecentMonth = SUM(CASE WHEN BillingMonth = @CrrtMonth THEN PaidUsageUSD_CSMProgram ELSE 0 END) 
-  INTO #ServiceBilling_TPIDTotal
+INTO #ServiceBilling_TPIDTotal
 FROM CTE
 GROUP BY AnalysisTPID,PaidUsageUSD_CSMProgram,BillingMonth;
 
@@ -175,40 +171,42 @@ GROUP BY AnalysisTPID,PaidUsageUSD_CSMProgram,BillingMonth;
 ------------------------- Step 3:  #ServiceBilling_TPIDTotal_Rest_Of_The_World -------------------------
 
 IF OBJECT_ID('tempdb..#ServiceBilling_TPIDTotal_Rest_Of_The_World') IS NOT NULL
-  DROP TABLE #ServiceBilling_TPIDTotal_Rest_Of_The_World
+  DROP TABLE #ServiceBilling_TPIDTotal_Rest_Of_The_World;
 
 select AnalysisTPID,
- CSMProgram_AddMonth = MIN(BillingMonth),
- CSMProgram_MostRecentMonth = MAX(BillingMonth),
- PaidUsageUSD_MostRecentMonth = SUM(CASE
-    WHEN (BillingMonth = @CrrtMonth ) then
- PaidUsageUSD_CSMProgram  
- ELSE 0
-  END) INTO #ServiceBilling_TPIDTotal_Rest_Of_The_World from #ServiceBilling_TPIDTotal ss
- LEFT JOIN vwOrganizationMaster om
-    ON ss.AnalysisTPID = om.OrgID where PaidUsageUSD_CSMProgram >=1000 and  om.SubsidiaryName!='United States' group by AnalysisTPID
+	CSMProgram_AddMonth = MIN(BillingMonth),
+	CSMProgram_MostRecentMonth = MAX(BillingMonth),
+	PaidUsageUSD_MostRecentMonth = SUM(CASE
+		WHEN (BillingMonth = @CrrtMonth ) then
+	PaidUsageUSD_CSMProgram  
+	ELSE 0
+	END) 
+INTO #ServiceBilling_TPIDTotal_Rest_Of_The_World 
+FROM #ServiceBilling_TPIDTotal ss
+LEFT JOIN vwOrganizationMaster om ON ss.AnalysisTPID = om.OrgID where PaidUsageUSD_CSMProgram >=1000 and  om.SubsidiaryName!='United States' group by AnalysisTPID;
 
 
 ------------------------- Step 3:  #ServiceBilling_TPIDTotal_US -------------------------
 
  IF OBJECT_ID('tempdb..#ServiceBilling_TPIDTotal_US') IS NOT NULL
-  DROP TABLE #ServiceBilling_TPIDTotal_US
+  DROP TABLE #ServiceBilling_TPIDTotal_US;
 
 select AnalysisTPID,
- CSMProgram_AddMonth = MIN(BillingMonth),
- CSMProgram_MostRecentMonth = MAX(BillingMonth),
- PaidUsageUSD_MostRecentMonth = SUM(CASE
-    WHEN (BillingMonth = @CrrtMonth ) then
- PaidUsageUSD_CSMProgram
- ELSE 0
-  END) INTO #ServiceBilling_TPIDTotal_US from #ServiceBilling_TPIDTotal ss
- LEFT JOIN vwOrganizationMaster om
-    ON ss.AnalysisTPID = om.OrgID where PaidUsageUSD_CSMProgram >=500 and om.SubsidiaryName='United States' group by AnalysisTPID
+	CSMProgram_AddMonth = MIN(BillingMonth),
+	CSMProgram_MostRecentMonth = MAX(BillingMonth),
+	PaidUsageUSD_MostRecentMonth = SUM(CASE
+		WHEN (BillingMonth = @CrrtMonth ) then
+	PaidUsageUSD_CSMProgram
+	ELSE 0
+	END) 
+INTO #ServiceBilling_TPIDTotal_US 
+FROM #ServiceBilling_TPIDTotal ss
+LEFT JOIN vwOrganizationMaster om ON ss.AnalysisTPID = om.OrgID where PaidUsageUSD_CSMProgram >=500 and om.SubsidiaryName='United States' group by AnalysisTPID;
 
 
 ------------------------- Step 3:  #ServiceBilling_TPIDTotal_US_All -------------------------
 
-Select * into #ServiceBilling_TPIDTotal_US_All from (Select * from #ServiceBilling_TPIDTotal_Rest_Of_The_World union select * from #ServiceBilling_TPIDTotal_US) as tmp;
+Select * into #ServiceBilling_TPIDTotal_US_All from (Select * FROM #ServiceBilling_TPIDTotal_Rest_Of_The_World union select * FROM #ServiceBilling_TPIDTotal_US) as tmp;
 
 -- SELECT
 --   CSMProgram_AddMonth,
@@ -331,7 +329,7 @@ UNION
 )
 SELECT * 
 INTO #AzureContactInfo
-FROM CTE
+FROM CTE;
 
 
 
@@ -422,6 +420,6 @@ INSERT INTO Partner_Support.SubscriptionDetails
 			ON ss.TPID = om.OrgID
 
 		  WHERE 1 = 1 
-		  AND ss.CurrentSubscriptionStatus NOT IN ('Deprovisioned', 'Disabled')
+		  AND ss.CurrentSubscriptionStatus NOT IN ('Deprovisioned', 'Disabled');
 
 
