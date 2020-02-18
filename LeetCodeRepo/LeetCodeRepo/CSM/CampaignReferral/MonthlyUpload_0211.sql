@@ -24,6 +24,8 @@ DECLARE @EarliestMonth int = @CrrtMonth
 IF OBJECT_ID('tempdb..#SubscriptionList') IS NOT NULL
   DROP TABLE #SubscriptionList;
 
+
+WITH CTE AS (
 SELECT
   AnalysisTPID = SS.TPID,
   ss.TPID,
@@ -36,16 +38,49 @@ SELECT
   ss.CurrentSubscriptionStatus,
   ss.SubscriptionStartDate,
   ss.BillableAccountID 
-  INTO #SubscriptionList
 FROM vwSubscriptionSnapshotV2 ss
 WHERE 1 = 1
 AND BusinessGroupName = 'Azure'
 AND AI_IsFraud = 0
 AND BisIsTestData = 0
 AND AI_IsTest = 0
-AND AI_OfferType IN ('Benefit Programs', 'Consumption' , 'Unit Commitment', 'Monetary Commitment' , 'Modern', 'CustomerLed','FieldLed' --,'Modern Field Led'
+AND AI_OfferType IN ('Benefit Programs', 'Consumption' , 'Unit Commitment', 'Monetary Commitment' , 'Modern', 'CustomerLed'
 )
-AND NOT OfferName IN ('Free Trial', 'BizSpark', 'BizSpark Plus', 'Microsoft Azure BizSpark 1111', 'Enterprise: BizSpark', 'Visual Studio Enterprise: BizSpark');
+AND NOT OfferName IN ('Free Trial', 'BizSpark', 'BizSpark Plus', 'Microsoft Azure BizSpark 1111', 'Enterprise: BizSpark', 'Visual Studio Enterprise: BizSpark')
+
+UNION
+
+SELECT
+  AnalysisTPID = SS.TPID,
+  ss.TPID,
+  ss.AI_SubscriptionKey,
+  ss.CommerceAccountID,
+  ss.OMSSubscriptionID,
+  ss.SubscriptionGUID,
+  ss.OfferName,
+  ss.OfferID,
+  ss.CurrentSubscriptionStatus,
+  ss.SubscriptionStartDate,
+  ss.BillableAccountID
+FROM vwSubscriptionSnapshotV2 ss LEFT JOIN vwOrganizationMaster AS om ON ss.TPID = om.TPID
+WHERE 1 = 1
+AND ss.BusinessGroupName = 'Azure'
+AND ss.AI_IsFraud = 0
+AND ss.BisIsTestData = 0
+AND ss.AI_IsTest = 0
+AND ss.AI_OfferType = 'FieldLed'
+AND NOT ss.OfferName IN ('Free Trial', 'BizSpark', 'BizSpark Plus', 'Microsoft Azure BizSpark 1111', 'Enterprise: BizSpark', 'Visual Studio Enterprise: BizSpark')
+AND (
+(om.segmentname = 'Small, Medium & Corporate Commercial' and om.subsegmentname = 'SM&C Commercial - SMB Default') or
+(om.segmentname = 'Small, Medium & Corporate Commercial' and om.subsegmentname = 'SM&C Commercial - SMB') or
+(om.segmentname = 'Small, Medium & Corporate Education' and om.subsegmentname = 'SM&C Education - SMB') or
+(om.segmentname = 'Small, Medium & Corporate Government' and om.subsegmentname = 'SM&C Government - SMB') 
+)
+) SELECT * INTO #SubscriptionList
+FROM CTE;
+
+
+
 
 
 
@@ -126,7 +161,8 @@ SELECT
   AnalysisTPID = SL.AnalysisTPID,
   HasExcludedUsage = MAX(CASE WHEN MU.[DateKey] IS NULL THEN 0 ELSE 1 END),
   PaidUsageUSD = SUM(SB.PaidUsageUSD),
-  PaidUsageUSD_CSMProgram = SUM(CASE WHEN SB.BillingType IN ('Direct (Global)', 'Direct (China)', 'Direct RI', 'Modern Customer-Led', 'Modern Customer-LedRI' --,'Modern Field-Led'
+  PaidUsageUSD_CSMProgram = SUM(CASE WHEN SB.BillingType IN ('Direct (Global)', 'Direct (China)', 'Direct RI', 'Modern Customer-Led', 'Modern Customer-LedRI' 
+  																,'Modern Field-Led', 'Modern Field-LedRI'
 																) AND MU.[DateKey] IS NULL THEN PaidUsageUSD ELSE NULL END),
   MU.ServiceName,
   MU.WorkloadName
@@ -141,6 +177,7 @@ GROUP BY SB.AI_SubscriptionKey,
          SB.BillingMonth,
          SL.AnalysisTPID;
 
+--.check difference if include Modern Field-Led or Not include
 
 
 ------------------------- Step 2: #ServiceBilling_TPIDTotal -------------------------
