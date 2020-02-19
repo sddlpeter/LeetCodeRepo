@@ -80,6 +80,8 @@ AS
        FROM #tmpTPID t --2602
        LEFT JOIN vwSubscriptionSnapshotv2 ss ON  t.SubscriptionGUID = ss.[AI_SubscriptionKey] --AND t.TPID = ss.TPID 
        LEFT JOIN vwOrganizationMaster om ON t.TPID = om.OrgID 
+
+       -- exclude 'FieldLed' segment != '' subsegment != ''
        
 --select * from #SubscriptionDetails
 
