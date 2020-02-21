@@ -91,7 +91,7 @@ IF OBJECT_ID('tempdb..#BillingResourceGUID2Service') IS NOT NULL
 
 
 WITH CTE
-AS (SELECT ServiceName,
+AS (SELECT
   BillingResourceGUID = CONVERT(uniqueidentifier, BillingResourceGUID),
   IsXamarin = (CASE WHEN ISNULL(ServiceName, '') LIKE '%Xamarin%' THEN 1 ELSE 0 END),
   IsAzureDevOps = (CASE WHEN ISNULL(ServiceName, '') LIKE '%Azure%DevOps%' THEN 1 ELSE 0 END),
@@ -133,7 +133,8 @@ LEFT JOIN #BillingResourceGUID2Service sh
   ON um.ResourceGUID = sh.BillingResourceGUID
 WHERE 1 = 1
 AND AI_IsBillable = 1
-AND @EarliestMonth <= DateKey AND DateKey <= @CrrtMonth
+AND @EarliestMonth <= DateKey
+AND DateKey <= @CrrtMonth
 GROUP BY Um.[DateKey],
          um.AI_SubscriptionKey
 )
@@ -163,7 +164,8 @@ FROM vwServiceBilling SB
 INNER JOIN #SubscriptionList SL ON SB.AI_SubscriptionKey = SL.AI_SubscriptionKey
 LEFT JOIN #MonthlyUsage_ExcludedMonth MU ON SB.BillingMonth = MU.[DateKey] AND SB.AI_SubscriptionKey = MU.AI_SubscriptionKey
 WHERE 1 = 1
-AND @EarliestMonth <= BillingMonth AND BillingMonth <= @CrrtMonth
+AND @EarliestMonth <= BillingMonth
+AND BillingMonth <= @CrrtMonth
 GROUP BY SB.AI_SubscriptionKey,
          SB.BillingMonth,
          SL.AnalysisTPID;
