@@ -77,7 +77,7 @@ AND (
 )
 ) SELECT * INTO #SubscriptionList
 FROM CTE;
-
+--22,029
 
 
 
@@ -92,8 +92,6 @@ IF OBJECT_ID('tempdb..#BillingResourceGUID2Service') IS NOT NULL
 
 WITH CTE
 AS (SELECT
-  ServiceName,
-  WorkloadName,
   BillingResourceGUID = CONVERT(uniqueidentifier, BillingResourceGUID),
   IsXamarin = (CASE WHEN ISNULL(ServiceName, '') LIKE '%Xamarin%' THEN 1 ELSE 0 END),
   IsAzureDevOps = (CASE WHEN ISNULL(ServiceName, '') LIKE '%Azure%DevOps%' THEN 1 ELSE 0 END),
@@ -127,9 +125,7 @@ AS (SELECT
   HasXamarin = MAX(CASE WHEN [Totalunits] > 0. THEN IsXamarin ELSE NULL END),
   IsAzureDevOpsOnly = MIN(CASE WHEN [Totalunits] > 0. THEN IsAzureDevOps ELSE NULL END),
   IsXamarinOnly = MIN(CASE WHEN [Totalunits] > 0. THEN IsXamarin ELSE NULL END),
-  CSMProgram_IsExcludedMonth = MIN(CASE WHEN [Totalunits] > 0. THEN IsExcluded ELSE NULL END),
-  sh.ServiceName,
-  sh.WorkloadName
+  CSMProgram_IsExcludedMonth = MIN(CASE WHEN [Totalunits] > 0. THEN IsExcluded ELSE NULL END)
 FROM vwUsageMonthly um
 INNER JOIN #SubscriptionList SL
   ON UM.AI_SubscriptionKey = SL.AI_SubscriptionKey
@@ -162,9 +158,7 @@ SELECT
   PaidUsageUSD = SUM(SB.PaidUsageUSD),
   PaidUsageUSD_CSMProgram = SUM(CASE WHEN SB.BillingType IN ('Direct (Global)', 'Direct (China)', 'Direct RI', 'Modern Customer-Led', 'Modern Customer-LedRI' 
   																,'Modern Field-Led', 'Modern Field-LedRI'
-																) AND MU.[DateKey] IS NULL THEN PaidUsageUSD ELSE NULL END),
-  MU.ServiceName,
-  MU.WorkloadName
+																) AND MU.[DateKey] IS NULL THEN PaidUsageUSD ELSE NULL END)
 INTO #ServiceBillingSubscription
 FROM vwServiceBilling SB
 INNER JOIN #SubscriptionList SL ON SB.AI_SubscriptionKey = SL.AI_SubscriptionKey
