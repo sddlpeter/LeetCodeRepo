@@ -333,7 +333,7 @@ UNION ALL
              FROM #SubscriptionDetails t
              LEFT JOIN [PII].[vwSubscriptionAdminDetails] sa ON t.SubscriptionGUID = sa.SubscriptionGUID
              LEFT JOIN PII.vwCommerceAccount ca ON t.CommerceAccountID = ca.CAID
-			 WHERE sa.[AdminType] in ('Owner','Contributor')
+			 WHERE sa.AdminState = 'Enabled'
 
 UNION ALL
 
@@ -398,7 +398,7 @@ UNION ALL
        ) a
              WHERE RNK = 1
 
-			 
+
 
 SELECT * from (select *,ROW_NUMBER() OVER (PARTITION BY SubscriptionGUID  ORDER BY TenantId DESC) as RNK2                                
 FROM [Partner_Support].[SubscriptionDetails] ) a
@@ -491,3 +491,5 @@ SELECT  DISTINCT TPID
        , SubscriptionGUID
                                  
 FROM [Partner_Support].[SubscriptionDetails]
+
+
