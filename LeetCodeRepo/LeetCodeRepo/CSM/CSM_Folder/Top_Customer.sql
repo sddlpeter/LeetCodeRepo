@@ -49,6 +49,13 @@ LEFT OUTER JOIN vwSubscriptionSnapshotv2 AS sub ON cust.SubscriptionGUID = sub.[
 LEFT OUTER JOIN tpid_history AS hist ON cust.SubscriptionGUID = hist.[AI_SubscriptionKey]
 LEFT OUTER JOIN tpid_history1 AS hist1 ON cust.SubscriptionGUID = hist1.[AI_SubscriptionKey]
 
+
+-- 'Top Customer' as Source
+
+
+
+
+
 /** Subscription Details **/
 IF OBJECT_ID('tempdb..#SubscriptionDetails')IS NOT NULL
 BEGIN
