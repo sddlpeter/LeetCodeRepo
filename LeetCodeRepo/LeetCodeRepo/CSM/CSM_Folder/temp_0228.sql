@@ -1,8 +1,4 @@
 
-
-
-------------------------------------------- Generate SubscriptionDetail ------------------------------------------
-
 /* Top Customer (Updated) -- Added RBAC logic */
 
 /* From the subscriptions provided by top customer list, 
@@ -107,7 +103,6 @@ AS
 --        ,HEAP
 --)
 --AS
-INSERT INTO [Partner_Support].[SubscriptionDetails] 
        SELECT DISTINCT TPID
              , OrgName
              , AreaName
@@ -143,9 +138,11 @@ INSERT INTO [Partner_Support].[SubscriptionDetails]
              , BillingMonth
              , SegmentName
              , SubsidiaryName
-             ,GETDAte()
+             ,GETDAte() AS ProcessedDate
              ,BillableAccountID
-             ,'TopCustomer'
+             ,'TopCustomer' AS Source
+
+             INTO #SubscriptionDetails_TEMP
            
        FROM 
        (            
@@ -399,109 +396,52 @@ UNION ALL
              LEFT JOIN PII.vwCommerceAccount ca ON t.CommerceAccountID = ca.CAID
 			 WHERE sra.[AdminType] in ('Owner','Contributor')
        ) a
-             WHERE RNK = 1
+             WHERE RNK = 1;
 
 
 
 
-------------------------------- load data into SC_Subscrpition_TopCustomer ----------------------------------------------
 
-SELECT * from (select *,ROW_NUMBER() OVER (PARTITION BY SubscriptionGUID  ORDER BY TenantId DESC) as RNK2                                
-FROM [Partner_Support].[SubscriptionDetails] ) a
-where a.RNK2 = 1
-ORDER BY 1, 8  ;
-
--- select count(distinct tpid) from #FinalSubscriptionDetails
--- select count(distinct subscriptionguid) from #FinalSubscriptionDetails -- 41651
--- select subscriptionguid from #FinalSubscriptionDetails group by subscriptionguid having count(*) > 1 
-
-
-
----------------------------- load data into SC_Admin_TopCustomer --------------------------------------------------------
-
-/** Admin Details **/
-
-WITH admins as
-(
-SELECT DISTINCT t.TPID 
-                      , t.SubscriptionGUID
-                      , sad.TenantID
-                      , CASE WHEN CAST(sad.ObjectID AS UNIQUEIDENTIFIER) IS NULL AND ci.ObjectID IS NOT NULL THEN ci.ObjectID
-                                 ELSE CAST(sad.ObjectID AS UNIQUEIDENTIFIER) 
-                        END ObjectID
-                      , sad.AdminPUID
-                      , CASE WHEN sad.MarketingProfileEmailID IS NULL AND sad.PrimaryEmailID IS NULL AND t.AdminPUID = sad.AdminPUID THEN t.AccountOwnerEmail
-                                 WHEN sad.MarketingProfileEmailID IS NULL THEN sad.PrimaryEmailID
-                                 ELSE sad.MarketingProfileEmailID
-                        END AS PrimaryEmailID
-                      , CASE WHEN sad.PrimaryFirstName IS NULL AND t.AdminPUID = sad.AdminPUID THEN t.AdminFirstName
-                                 ELSE sad.PrimaryFirstName
-                           END PrimaryFirstName
-                      , CASE WHEN sad.PrimaryLastName IS NULL AND t.AdminPUID = sad.AdminPUID THEN t.AdminLastName
-                                 ELSE sad.PrimaryLastName
-                           END PrimaryLastName
-                      , CASE WHEN sad.TelephoneNumber IS NULL AND t.AdminPUID = sad.AdminPUID THEN t.AdminPhoneNumber
-                                 ELSE sad.TelephoneNumber
-                           END TelephoneNumber
-                      , CASE WHEN sad.PreferredLanguage IS NULL AND t.AdminPUID = sad.AdminPUID THEN t.AdminLocale
-                                 ELSE sad.PreferredLanguage
-                           END PreferredLanguage
-                      , sad.AdminType
-                      , t.CommerceAccountID
-                      --, sad.SubscriptionName
-FROM [Partner_Support].[SubscriptionDetails] t
-LEFT JOIN PII.vwSubscriptionAdminDetails sad ON t.SubscriptionGUID = sad.SubscriptionGUID 
-LEFT JOIN PII.vwAzureContactInfo ci ON sad.SubscriptionGUID = ci.SubscriptionGUID AND sad.AdminPUID = ci.AccountOwnerPUID
-WHERE sad.AdminState = 'Enabled'
---AND sad.PrimaryEmailID IS NOT NULL
-AND sad.AdminType IS NOT NULL
---AND t.TenantID IS NOT NULL
-
-UNION ALL
-
-SELECT DISTINCT t.TPID 
-                      , t.SubscriptionGUID
-                      , sra.TenantID
-                      , sra.ObjectID
-                      , sra.AdminPUID
-                      , CASE WHEN sra.PrimaryEmailID IS NULL AND t.AdminPUID = sra.AdminPUID THEN t.AccountOwnerEmail
-                                 ELSE sra.PrimaryEmailID
-                           END PrimaryEmailID
-                      , CASE WHEN sra.PrimaryFirstName IS NULL AND t.AdminPUID = sra.AdminPUID THEN t.AdminFirstName
-                                 ELSE sra.PrimaryFirstName
-                           END PrimaryFirstName
-                      , CASE WHEN sra.PrimaryLastName IS NULL AND t.AdminPUID = sra.AdminPUID THEN t.AdminLastName
-                                 ELSE sra.PrimaryLastName
-                           END PrimaryLastName
-                      , CASE WHEN sra.TelephoneNumber IS NULL AND t.AdminPUID = sra.AdminPUID THEN t.AdminPhoneNumber
-                                 ELSE sra.TelephoneNumber
-                           END TelephoneNumber
-                      , CASE WHEN sra.PreferredLanguage IS NULL AND t.AdminPUID = sra.AdminPUID THEN t.AdminLocale
-                                 ELSE sra.PreferredLanguage
-                           END PreferredLanguage
-                      , sra.AdminType
-                      , t.CommerceAccountID
-FROM [Partner_Support].[SubscriptionDetails] t
-JOIN PII.vwSubscriptionRoleAssignments sra ON t.SubscriptionGUID = sra.SubscriptionGUID 
-WHERE sra.AdminType IN ('Owner' , 'Contributor')
---AND sra.PrimaryEmailID IS NOT NULL
-)
-SELECT * FROM admins WHERE PrimaryEmailID IS NOT NULL ORDER BY 1, 2  
-
-/** TPID Details **/
---SELECT DISTINCT TPID
---     , SubscriptionGUID,*
---     --, '' AS [CSM Manager Alias]
---FROM #FinalSubscriptionDetails s
---ORDER BY 1, 2
-
-
-
--------------------------------------- load data into SC_TPID_TopCustomer -----------------------------------
-
-SELECT  DISTINCT TPID
-       , SubscriptionGUID
-                                 
-FROM [Partner_Support].[SubscriptionDetails]
+insert into partner_support.SubscriptionDetails
+select
+    tpid,
+    orgname,
+    areaname,
+    tenantid,
+    commerceaccountid,
+    omssubscriptionid,
+    subscriptionguid,
+    offername,
+    offerid,
+    currentsubscriptionstatus,
+    subscriptionstartdate,
+    address1,
+    address2,
+    address3,
+    city,
+    state,
+    postalcode,
+    case when b.countrycode is not null then b.countrycode else 'NA' end as  countrycode,
+    adminpuid,
+    adminfirstname,
+    adminlastname,
+    adminphonenumber,
+    accountowneremail,
+    cast(admincommunicationemail as nvarchar(129)) as admincommunicationemail,
+    cast(adminlocale as nvarchar(32)) as adminlocale,
+    adminphonepreference,
+    adminemailpreference,
+    paidusageusd,
+    usagestartdatekey,
+    usageenddatekey,
+    invoicedatekey,
+    billingmonth,
+    segmentname,
+    subsidiaryname,
+    processeddate,
+    billableaccountid,
+    source
+from #SubscriptionDetails_TEMP as a
+LEFT JOIN PartnerBA_Publish.vwCountries  as b on a.countrycode = b.name;
 
 
