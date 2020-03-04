@@ -110,7 +110,7 @@ INSERT INTO Partner_Support.SubscriptionDetails
 			 , SubsidiaryName
 			 , @parmProcessDate AS ProcessedDate
 			 , BillableAccountID
-			 , cast(Source as varchar(15)) AS Source
+			 , cast(Source as varchar(100)) AS Source
 FROM 
 	(		
 		SELECT ss.TPID
