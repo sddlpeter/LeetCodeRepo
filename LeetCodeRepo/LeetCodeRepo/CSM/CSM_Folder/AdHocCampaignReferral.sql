@@ -94,10 +94,11 @@ FROM
 			 , ROW_NUMBER() OVER (PARTITION BY ss.SubscriptionGUID ORDER BY ss.SubscriptionCreatedDate DESC) RNK
 		FROM Partner_Support.AdHocSubscription t
 		JOIN vwSubscriptionSnapshotV2 ss ON t.SubscriptionGUID = ss.SubscriptionGUID
+		--vwSubscriptionSnapshot ss ON t.SubscriptionGUID = ss.SubscriptionGUID
 		LEFT JOIN PII.vwAzureContactInfo ci ON t.SubscriptionGUID = ci.SubscriptionGUID
 		LEFT JOIN vwServiceBilling sb ON t.SubscriptionGUID = sb.AI_SubscriptionKey -- some subscriptions might not have paid usage for a while or in that billing month
 		LEFT JOIN vwOrganizationMaster om ON ss.TPID = om.OrgID  
-		WHERE t.CreatedDate =  @parmProcessDate
+		WHERE t.CreatedDate =  cast(@parmProcessDate as date)
 		AND t.SubscriptionGUID IS NOT NULL
 
 		UNION ALL
@@ -144,7 +145,7 @@ FROM
 		LEFT JOIN PII.vwAzureContactInfo_Mooncake ci ON t.SubscriptionGUID = ci.SubscriptionGUID
 		JOIN vwServiceBilling sb ON t.SubscriptionGUID = sb.AI_SubscriptionKey  -- some subscriptions might not have paid usage for a while or in that billing month
 		JOIN vwOrganizationMaster om ON ss.TPID = om.OrgID   
-		WHERE t.CreatedDate = @parmProcessDate
+		WHERE t.CreatedDate = cast(@parmProcessDate as date)
 		AND t.SubscriptionGUID  IS NOT NULL
 		AND sb.BillingType = 'Direct (China)'
 
@@ -192,7 +193,7 @@ FROM
 		LEFT JOIN [PII].[vwSubscriptionAdminDetails] sa ON t.SubscriptionGUID = sa.SubscriptionGUID
 		LEFT JOIN vwServiceBilling sb ON t.SubscriptionGUID = sb.AI_SubscriptionKey -- some subscriptions might not have paid usage for a while or in that billing month
 		LEFT JOIN vwOrganizationMaster om ON ss.TPID = om.OrgID  
-		WHERE t.CreatedDate = @parmProcessDate
+		WHERE t.CreatedDate = cast(@parmProcessDate as date)
 		AND t.SubscriptionGUID  IS NOT NULL
 		AND sa.[AdminType] = 'Owner'
 
@@ -240,12 +241,13 @@ FROM
     LEFT JOIN [PII].[vwSubscriptionRoleAssignments] sra ON t.SubscriptionGUID = sra.SubscriptionGUID
     LEFT JOIN vwServiceBilling sb ON t.SubscriptionGUID = sb.AI_SubscriptionKey -- some subscriptions might not have paid usrage for a while or in that billing month
     LEFT JOIN vwOrganizationMaster om ON ss.TPID = om.OrgID  
-    WHERE t.CreatedDate = @parmProcessDate
+    WHERE t.CreatedDate = cast(@parmProcessDate as date)
     AND t.SubscriptionGUID  IS NOT NULL
     AND sra.[AdminType] ='Contributor'
 
 ) a
 WHERE RNK = 1
+
 
 
 -------------------- copy subscription data to SC_Subscription_Referral -------------------
