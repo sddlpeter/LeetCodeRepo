@@ -369,7 +369,7 @@ SELECT DISTINCT t.TPID
 			  , t.ProcessedDate AS ProcessedDate
 FROM Partner_Support.SubscriptionDetails t
 JOIN PII.vwSubscriptionRoleAssignments sra ON t.SubscriptionGUID = sra.SubscriptionGUID 
-WHERE sra.AdminType IN ('Contributor', 'admin')
+WHERE sra.AdminType IN ('Contributor', 'Owner')
 ORDER BY 1, 2
 
 -------------------- copy subscription data to SC_TPID_Referral -------------------
