@@ -350,7 +350,7 @@ UNION
 			  MarketingProfileLocale AS Locale,
 			  '' AS AllowPhoneCommunications,
 			  '' AS AllowEmailCommunications
-			FROM [PII].[vwSubscriptionRoleAssignments] as a
+			FROM [PII].[vwSubscriptionRoleAssignments] as a  
 			LEFT JOIN vwCountries as b on a.Country = b.Name
 			WHERE SubscriptionGUID IN (SELECT SubscriptionGUID FROM #SubscriptionList)
 			AND [AdminType] ='Contributor'
